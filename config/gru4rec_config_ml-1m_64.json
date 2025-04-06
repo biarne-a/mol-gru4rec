@@ -1,0 +1,9 @@
+{
+  "model_config_name": "Gru4RecConfig",
+  "hidden_size": 64,
+  "batch_size": 128,
+  "learning_rate": 1e-3,
+  "nb_train": 988129,
+  "nb_val": 6040,
+  "nb_test": 6040
+}

@@ -1,0 +1,5 @@
+.dev
+.venv
+data
+.shadowenv.d
+credentials.json

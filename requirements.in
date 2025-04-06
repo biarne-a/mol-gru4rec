@@ -1,0 +1,11 @@
+pyarrow==16.1.0
+apache_beam[gcp]
+matplotlib==3.10.1
+pandas
+jupyterlab==4.4.0
+isort==6.0.1
+black==25.1.0
+autoflake==2.3.1
+flake8==7.2.0
+google-cloud-storage==3.1.0
+tqdm
