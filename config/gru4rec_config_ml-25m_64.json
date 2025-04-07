@@ -2,7 +2,10 @@
   "model_config_name": "Gru4RecConfig",
   "embedding_dim": 64,
   "batch_size": 256,
-  "epochs": 3,
+  "epochs": 24,
+  "val_every_n_steps": 1000,
+  "early_stopping_after_n_evals": 3,
+  "early_stopping_metric": "val_hr@100",
   "learning_rate": 1e-3,
   "dropout_p_embed": 0.0,
   "dropout_p_gru": 0.0

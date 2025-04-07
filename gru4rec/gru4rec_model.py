@@ -24,7 +24,8 @@ class Gru4RecModel(nn.Module):
         self._dropout_emb = nn.Dropout(dropout_p_embed)
         self._gru_layer = nn.GRU(embedding_dim, embedding_dim, batch_first=True, dropout=dropout_p_gru)
         self._device = device
-        self.metrics = RetrievalMetrics(at_k_list=[1, 5, 10, 50])
+        self.metrics = RetrievalMetrics(at_k_list=[10, 50, 100, 200])
+        self.max_top_k = self.metrics.at_k_list[-1]
 
     def forward(self, inputs):
         ctx_movie_emb = self._movie_id_embedding(inputs["input_ids"])
@@ -51,7 +52,7 @@ class Gru4RecModel(nn.Module):
             y_true = inputs["label"]
             y_pred = self(inputs)
             loss = criterion(y_pred, y_true.squeeze())
-            _, top_k_indices = torch.topk(y_pred, dim=1, k=50)  # (B, k,)
+            _, top_k_indices = torch.topk(y_pred, dim=1, k=self.max_top_k)  # (B, k,)
             top_k_ids = self._all_item_ids[top_k_indices]
             self.metrics.update(top_k_ids, y_true)
 

@@ -61,17 +61,23 @@ def run_training(config: Config):
     local_save_filepath = _get_model_local_save_filepath(config)
 
     all_epoch_metrics = []
+    train_losses = []
+    val_last_early_stopping_metrics = []
     for epoch in range(config.epochs):  # Change to desired number of epochs
         model.train()
         for step, batch in enumerate(data.train_dataloader):
             batch = send_batch_to_device(batch, device)
             loss = model.train_step(batch, optimizer, criterion)
+            train_losses.append(loss)
             if step % 100 == 0:
-                print(f"Epoch {epoch}, Step {step}, Loss: {loss}")
+                print(f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}")
+            if step % config.val_every_n_steps:
                 epoch_metrics = _evaluate(criterion, data, device, epoch, model)
-
-        # epoch_metrics = _evaluate(criterion, data, device, epoch, model)
-        # all_epoch_metrics.append(epoch_metrics)
+                val_last_early_stopping_metric = epoch_metrics[config.early_stopping_metric]
+                if all(val_last_early_stopping_metric < val for val in val_last_early_stopping_metrics[-3:]):
+                    print("Stopping early due to no improvement in validation metric.")
+                    break
+                val_last_early_stopping_metrics.append(val_last_early_stopping_metric)
 
         torch.save(model.state_dict(), local_save_filepath)
 
@@ -80,6 +86,7 @@ def run_training(config: Config):
 
 
 def _evaluate(criterion, data, device, epoch, model) -> dict[str, float]:
+    print("Evaluating model...")
     model.eval()
     val_losses = []
     for i, batch in enumerate(data.val_dataloader):
