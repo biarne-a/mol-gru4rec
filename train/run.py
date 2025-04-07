@@ -62,22 +62,23 @@ def run_training(config: Config):
 
     all_epoch_metrics = []
     train_losses = []
-    val_last_early_stopping_metrics = []
+    val_last_early_stopping_metrics = [float("inf")] * config.early_stopping_after_n_evals
     for epoch in range(config.epochs):  # Change to desired number of epochs
         model.train()
         for step, batch in enumerate(data.train_dataloader):
             batch = send_batch_to_device(batch, device)
             loss = model.train_step(batch, optimizer, criterion)
             train_losses.append(loss)
-            if step % 100 == 0:
+            if step > 0 and step % 100 == 0:
                 print(f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}")
-            if step % config.val_every_n_steps:
-                epoch_metrics = _evaluate(criterion, data, device, epoch, model)
-                val_last_early_stopping_metric = epoch_metrics[config.early_stopping_metric]
-                if all(val_last_early_stopping_metric < val for val in val_last_early_stopping_metrics[-3:]):
+            if step > 0 and step % config.val_every_n_steps == 0:
+                epoch_metrics = _evaluate(criterion, data, device, model)
+                last_val = epoch_metrics[config.early_stopping_metric]
+                prev_metrics = val_last_early_stopping_metrics[-config.early_stopping_after_n_evals:]
+                if all(prev_val < last_val for prev_val in prev_metrics):
                     print("Stopping early due to no improvement in validation metric.")
                     break
-                val_last_early_stopping_metrics.append(val_last_early_stopping_metric)
+                val_last_early_stopping_metrics.append(last_val)
 
         torch.save(model.state_dict(), local_save_filepath)
 
@@ -85,7 +86,7 @@ def run_training(config: Config):
     # run_evaluation(config, data, criterion)
 
 
-def _evaluate(criterion, data, device, epoch, model) -> dict[str, float]:
+def _evaluate(criterion, data, device, model) -> dict[str, float]:
     print("Evaluating model...")
     model.eval()
     val_losses = []
@@ -96,13 +97,13 @@ def _evaluate(criterion, data, device, epoch, model) -> dict[str, float]:
     avg_val_loss = float(np.mean(val_losses))
     val_metrics = model.metrics.compute()
     all_metrics = {"val_loss": avg_val_loss, **{f"val_{k}": v for k, v in val_metrics.items()}}
-    _print_metrics(all_metrics, epoch)
+    _print_metrics(all_metrics)
     return all_metrics
 
 
-def _print_metrics(all_metrics: dict[str, float], epoch: int):
+def _print_metrics(all_metrics: dict[str, float]):
     metrics_str = {k: f'{v:.3f}' for k, v in all_metrics.items()}
-    print(f"Epoch {epoch}: {metrics_str}")
+    print(metrics_str)
 
 
 def run_evaluation(config: Config, data: Data, criterion):
