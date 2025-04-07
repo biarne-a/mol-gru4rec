@@ -184,7 +184,7 @@ def preprocess_with_dataflow(
     with beam.Pipeline(options=options) as pipeline:
         raw_ratings = (
             pipeline
-            | "Read ratings CSV" >> beam.io.textio.ReadFromText(f"{data_dir}/ml-1m/ratings.csv", skip_header_lines=0)
+            | "Read ratings CSV" >> beam.io.textio.ReadFromText(f"{data_dir}/ratings.csv", skip_header_lines=0)
             | "Transform row to rating dict" >> beam.Map(_transform_to_rating)
             | "Filter low ratings (keep implicit positives)" >> beam.Filter(lambda x: x["rating"] > implicit_rating_threshold)
         )
@@ -255,7 +255,7 @@ def preprocess_with_dataflow(
 if __name__ == "__main__":
     preprocess_with_dataflow(
         data_dir="gs://movie-lens-25m",
-        dataset_dir_version_name="gru4rec_ml1m_full_slide",
+        dataset_dir_version_name="gru4rec_ml25m_full_slide",
         max_context_len=200,
         implicit_rating_threshold=2.0,
         sliding_window_step_size_override=1

@@ -1,0 +1,11 @@
+[project]
+name = "mol-gru4rec-preprocess"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "google-cloud-storage>=2.19.0",
+    "apache-beam[gcp]>=2.64.0",
+    "pyarrow>=16.1.0",
+]
