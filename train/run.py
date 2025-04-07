@@ -1,101 +1,123 @@
-import sys
 import os
 import random
 
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.metrics import Recall
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from sklearn.metrics import recall_score
 
 from config.config import Config
-from train.datasets import get_data, Data
+from gru4rec import Gru4RecModel
+from train.data import get_data, Data
 from train.save_results import save_history, save_predictions
 
 
-def _debugger_is_active() -> bool:
-    """Return if the debugger is currently active"""
-    return hasattr(sys, "gettrace") and sys.gettrace() is not None
-
-
 def set_seed():
-    # for tf.random
-    tf.random.set_seed(Config.SEED)
-    # for numpy.random
+    torch.manual_seed(Config.SEED)
     np.random.seed(Config.SEED)
-    # for built-in random
     random.seed(Config.SEED)
-    # for hash seed
     os.environ["PYTHONHASHSEED"] = str(Config.SEED)
-
 
 def _get_model_local_save_filepath(config: Config) -> str:
     local_savedir = f"data/results/{config.dataset_name}"
     os.makedirs(local_savedir, exist_ok=True)
-    return f"{local_savedir}/model.weights.h5"
+    return f"{local_savedir}/model.pth"
 
 
-def _build_optimizer(config, data):
-    leaarning_rate_schedule = tf.keras.optimizers.schedules.PolynomialDecay(
-        initial_learning_rate=config.learning_rate,
-        decay_steps=data.nb_train_batches * 40,
-        end_learning_rate=0.0,
-        power=1.0,
-        cycle=False,
-    )
-    opt = tf.keras.optimizers.legacy.Adam(learning_rate=leaarning_rate_schedule,
-                                          epsilon=1e-6,
-                                          global_clipnorm=5.0)
-    return opt
+def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecModel:
+    gru4rec_config = config.model_config.to_dict()
+    return Gru4RecModel(data, device, **gru4rec_config).to(device)
 
 
-def _compile_model(model, config, data):
-  optimizer = _build_optimizer(config, data)
-  model.compile(
-      optimizer=optimizer,
-      loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-      metrics=[
-          Recall(top_k=10),
-      ],
-      run_eagerly=_debugger_is_active(),
-  )
+def _build_optimizer(model, config):
+    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+    return optimizer
+
+def _compile_model(model, config):
+    optimizer = _build_optimizer(model, config)
+    criterion = nn.CrossEntropyLoss()
+    return optimizer, criterion
+
+def get_device():
+    if torch.backends.mps.is_available():
+        return torch.device('mps')
+    elif torch.cuda.is_available():
+        return torch.device('cuda')
+    return torch.device('cpu')
+
+def send_batch_to_device(batch: dict[str, torch.tensor], device: torch.device):
+    return {k: v.to(device) for k, v in batch.items()}
 
 
 def run_training(config: Config):
     os.makedirs(config.results_dir, exist_ok=True)
+    set_seed()
 
+    device = get_device()
     data = get_data(config)
-    model = config.model_config.build_model(data)
-    _compile_model(model, config, data)
+    model = build_model(config, data, device)
+    optimizer, criterion = _compile_model(model, config)
     local_save_filepath = _get_model_local_save_filepath(config)
-    history = model.fit(
-        x=data.train_ds,
-        epochs=2,#1_000,
-        steps_per_epoch=20,#data.nb_train_batches,
-        validation_data=data.val_ds,
-        validation_steps=300,#data.nb_val_batches,
-        callbacks=[
-            tf.keras.callbacks.TensorBoard(log_dir="logs", update_freq=100),
-            tf.keras.callbacks.EarlyStopping(monitor="val_recall_at_10", mode="max", patience=2),
-            tf.keras.callbacks.ModelCheckpoint(
-              local_save_filepath, monitor="val_recall_at_10", mode="max", 
-              save_best_only=True, save_weights_only=True, verbose=2
-            ),
-        ],
-        verbose=1,
-    )
-    distant_save_filepath = f"{config.results_dir}/model.weights.h5"
-    if local_save_filepath != distant_save_filepath:
-      tf.io.gfile.copy(
-        local_save_filepath, distant_save_filepath, overwrite=True
-    )
-    save_history(history, config)
-    run_evaluation(config, data)
+
+    all_epoch_metrics = []
+    for epoch in range(config.epochs):  # Change to desired number of epochs
+        model.train()
+        for step, batch in enumerate(data.train_dataloader):
+            batch = send_batch_to_device(batch, device)
+            loss = model.train_step(batch, optimizer, criterion)
+            if step % 100 == 0:
+                print(f"Epoch {epoch}, Step {step}, Loss: {loss}")
+                epoch_metrics = _evaluate(criterion, data, device, epoch, model)
+
+        # epoch_metrics = _evaluate(criterion, data, device, epoch, model)
+        # all_epoch_metrics.append(epoch_metrics)
+
+        torch.save(model.state_dict(), local_save_filepath)
+
+    save_history(all_epoch_metrics, config)
+    # run_evaluation(config, data, criterion)
 
 
-def run_evaluation(config: Config, data: Data):
+def _evaluate(criterion, data, device, epoch, model) -> dict[str, float]:
+    model.eval()
+    val_losses = []
+    for i, batch in enumerate(data.val_dataloader):
+        batch = send_batch_to_device(batch, device)
+        val_loss = model.test_step(batch, criterion)
+        val_losses.append(val_loss)
+    avg_val_loss = float(np.mean(val_losses))
+    val_metrics = model.metrics.compute()
+    all_metrics = {"val_loss": avg_val_loss, **{f"val_{k}": v for k, v in val_metrics.items()}}
+    _print_metrics(all_metrics, epoch)
+    return all_metrics
+
+
+def _print_metrics(all_metrics: dict[str, float], epoch: int):
+    metrics_str = {k: f'{v:.3f}' for k, v in all_metrics.items()}
+    print(f"Epoch {epoch}: {metrics_str}")
+
+
+def run_evaluation(config: Config, data: Data, criterion):
     data = get_data(config)
     local_save_filepath = _get_model_local_save_filepath(config)
-    model = config.model_config.build_model(data)
-    _compile_model(model, config, data)
-    model.load_weights(local_save_filepath)
-    model.evaluate(data.test_ds, steps=data.nb_test_batches)
+    model = build_model(config.model_config, data)
+    model.load_state_dict(torch.load(local_save_filepath))
+    model.eval()
+
+    test_losses = []
+    all_preds = []
+    all_labels = []
+    for batch in data.test_ds:
+        test_loss = model.test_step(batch, criterion)
+        test_losses.append(test_loss)
+        preds = model(batch).argmax(dim=1).cpu().numpy()
+        labels = batch["label"].cpu().numpy()
+        all_preds.extend(preds)
+        all_labels.extend(labels)
+
+    avg_test_loss = np.mean(test_losses)
+    test_recall = recall_score(all_labels, all_preds, average="macro")
+    print(f"Test Loss: {avg_test_loss}, Test Recall: {test_recall}")
+
     save_predictions(config, data, model)

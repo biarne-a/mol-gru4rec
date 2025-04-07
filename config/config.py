@@ -1,17 +1,6 @@
 import json
 
 
-class ModelConfig:
-    def get_train_features_description(self):
-        raise NotImplementedError()
-
-    def get_val_and_test_features_description(self):
-        raise NotImplementedError()
-
-    def get_setup_batch_fn(self, movie_id_lookup):
-        raise NotImplementedError()
-
-
 class Config:
     SEED = 42
 
@@ -25,6 +14,7 @@ class Config:
         self.dataset_name = dataset_name
         json_model_config = json.load(open(config_file, "r"))
         self.batch_size = json_model_config.pop("batch_size")
+        self.epochs = json_model_config.pop("epochs")
         self.learning_rate = json_model_config.pop("learning_rate")
         model_config_cls = self._fetch_class(json_model_config.pop("model_config_name"))
         self.model_config = model_config_cls.from_dict(json_model_config)

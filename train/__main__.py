@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from config.config import Config
-from train.run_torch import run_training
+from train.run import run_training
 
 
 def _parse_config() -> Config:

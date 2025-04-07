@@ -1,84 +1,58 @@
-import tensorflow as tf
-from tensorflow import keras
+import torch
+import torch.nn as nn
+
+from config import Config
+from gru4rec.metrics import RetrievalMetrics
+from train.data import Data
 
 
-step_signature = [{
-    "input_ids": tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-    "input_mask": tf.TensorSpec(shape=(None, None), dtype=tf.int64),
-    "label": tf.TensorSpec(shape=(None, 1), dtype=tf.int64),
-}]
+class Gru4RecModel(nn.Module):
+    def __init__(
+        self,
+        data: Data,
+        device: torch.tensor,
+        embedding_dim: int,
+        dropout_p_embed: float = 0.0,
+        dropout_p_gru: float = 0.0,
+    ):
+        super(Gru4RecModel, self).__init__()
+        all_item_ids = torch.tensor(data.movie_id_lookup.vocab_ids, device=device, dtype=torch.long)
+        self._all_item_ids = all_item_ids.squeeze(0)
+        self._vocab_size = data.movie_id_lookup.get_vocab_size()
+        self._embedding_dim = embedding_dim
+        self._movie_id_embedding = nn.Embedding(self._vocab_size, embedding_dim)
+        self._dropout_emb = nn.Dropout(dropout_p_embed)
+        self._gru_layer = nn.GRU(embedding_dim, embedding_dim, batch_first=True, dropout=dropout_p_gru)
+        self._device = device
+        self.metrics = RetrievalMetrics(at_k_list=[1, 5, 10, 50])
 
-
-class Gru4RecModel(keras.models.Model):
-    def __init__(self, vocab_size: int, hidden_size: int, dropout_p_embed=0.0, dropout_p_hidden=0.0, **kwargs):
-        super().__init__()
-        self._vocab_size = vocab_size
-        self._hidden_size = hidden_size
-        self._dropout_p_embed = dropout_p_embed
-        self._dropout_p_hidden = dropout_p_hidden
-        self._movie_id_embedding = tf.keras.layers.Embedding(vocab_size + 1, hidden_size)
-        self._dropout_emb = tf.keras.layers.Dropout(dropout_p_embed)
-        self._gru_layer = tf.keras.layers.GRU(hidden_size, return_sequences=True, recurrent_dropout=dropout_p_hidden)
-
-    def call(self, inputs, training=False):
+    def forward(self, inputs):
         ctx_movie_emb = self._movie_id_embedding(inputs["input_ids"])
-        ctx_movie_emb = self._dropout_emb(ctx_movie_emb, training=training)
-        gru_output = self._gru_layer(ctx_movie_emb, training=training)
-        sequence_lengths = tf.cast(
-          tf.reduce_sum(inputs["input_mask"], axis=1), tf.int32
-        )
-        # slice the gru sequence of output hidden state to get the last hidden
-        # state according to sequence lengths
-        batch_size = tf.shape(inputs["input_mask"])[0]
-        last_hidden_state_idx = tf.concat(
-            [
-                tf.expand_dims(tf.range(0, batch_size), 1),
-                tf.expand_dims(sequence_lengths - 1, 1),
-            ],
-            axis=1,
-        )
-        last_hidden_state = tf.gather_nd(gru_output, last_hidden_state_idx)
-        logits = tf.matmul(last_hidden_state, tf.transpose(self._movie_id_embedding.embeddings))
+        ctx_movie_emb = self._dropout_emb(ctx_movie_emb)
+        gru_output, _ = self._gru_layer(ctx_movie_emb)
+        sequence_lengths = torch.sum(inputs["input_mask"], dim=1).int()
+        batch_size = inputs["input_ids"].size(0)
+        batch_indexes = torch.arange(batch_size).to(self._device)
+        last_hidden_state = gru_output[batch_indexes, sequence_lengths - 1, :]
+        logits = torch.matmul(last_hidden_state, self._movie_id_embedding.weight.t())
         return logits
 
-    # @tf.function(input_signature=step_signature)
-    def train_step(self, inputs):
+    def train_step(self, inputs, optimizer, criterion):
+        optimizer.zero_grad()
         y_true = inputs["label"]
-        with tf.GradientTape() as tape:
-            y_pred = self(inputs, training=True)
-            loss = self.compute_loss(inputs, y_true, y_pred)
+        y_pred = self(inputs)
+        loss = criterion(y_pred, y_true.squeeze())
+        loss.backward()
+        optimizer.step()
+        return loss.item()
 
-        gradients = tape.gradient(loss, self.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+    def test_step(self, inputs, criterion):
+        with torch.no_grad():
+            y_true = inputs["label"]
+            y_pred = self(inputs)
+            loss = criterion(y_pred, y_true.squeeze())
+            _, top_k_indices = torch.topk(y_pred, dim=1, k=50)  # (B, k,)
+            top_k_ids = self._all_item_ids[top_k_indices]
+            self.metrics.update(top_k_ids, y_true)
 
-        return self._update_metrics(y_true, y_pred, loss)
-
-    @tf.function(input_signature=step_signature)
-    def test_step(self, inputs):
-        y_true = inputs["label"]
-        y_pred = self(inputs, training=False)
-
-        loss = self.compute_loss(inputs, y_true, y_pred)
-        return self._update_metrics(y_true, y_pred, loss)
-
-    def _update_metrics(self, y_true, y_pred, loss):
-        for metric in self.metrics:
-            if metric.name == "loss":
-                metric.update_state(loss)
-            else:
-                metric.update_state(y_true, y_pred)
-        return {m.name: m.result() for m in self.metrics}
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({
-            "vocab_size": self._vocab_size,
-            "hidden_size": self._hidden_size,
-            "dropout_p_embed": self._dropout_p_embed,
-            "dropout_p_hidden": self._dropout_p_hidden
-        })
-        return config
-
-    @classmethod
-    def from_config(cls, config, custom_object=None):
-        return cls(**config)
+        return loss.item()
