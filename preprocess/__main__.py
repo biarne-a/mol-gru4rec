@@ -184,7 +184,7 @@ def preprocess_with_dataflow(
     with beam.Pipeline(options=options) as pipeline:
         raw_ratings = (
             pipeline
-            | "Read ratings CSV" >> beam.io.textio.ReadFromText(f"{data_dir}/ratings.csv", skip_header_lines=0)
+            | "Read ratings CSV" >> beam.io.textio.ReadFromText(f"{data_dir}/ratings.csv", skip_header_lines=1)
             | "Transform row to rating dict" >> beam.Map(_transform_to_rating)
             | "Filter low ratings (keep implicit positives)" >> beam.Filter(lambda x: x["rating"] > implicit_rating_threshold)
         )
