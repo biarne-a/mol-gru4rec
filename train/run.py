@@ -10,6 +10,7 @@ from sklearn.metrics import recall_score
 from config.config import Config
 from gru4rec import Gru4RecModel
 from train.data import get_data, Data
+from train.early_stopping_callback import EarlyStoppingCallback
 from train.save_results import save_history, save_predictions
 
 
@@ -54,15 +55,21 @@ def run_training(config: Config):
     os.makedirs(config.results_dir, exist_ok=True)
     set_seed()
 
+    all_epoch_metrics = _main_loop(config)
+
+    save_history(all_epoch_metrics, config)
+    # run_evaluation(config, data, criterion)
+
+
+def _main_loop(config):
     device = get_device()
     data = get_data(config)
     model = build_model(config, data, device)
     optimizer, criterion = _compile_model(model, config)
     local_save_filepath = _get_model_local_save_filepath(config)
-
     all_epoch_metrics = []
     train_losses = []
-    val_last_early_stopping_metrics = [float("inf")] * config.early_stopping_after_n_evals
+    early_stopping = EarlyStoppingCallback(config.early_stopping_patience, config.early_stopping_metric)
     for epoch in range(config.epochs):  # Change to desired number of epochs
         model.train()
         for step, batch in enumerate(data.train_dataloader):
@@ -70,20 +77,16 @@ def run_training(config: Config):
             loss = model.train_step(batch, optimizer, criterion)
             train_losses.append(loss)
             if step > 0 and step % 100 == 0:
-                print(f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}")
+                print(
+                    f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}")
             if step > 0 and step % config.val_every_n_steps == 0:
                 epoch_metrics = _evaluate(criterion, data, device, model)
-                last_val = epoch_metrics[config.early_stopping_metric]
-                prev_metrics = val_last_early_stopping_metrics[-config.early_stopping_after_n_evals:]
-                if all(prev_val < last_val for prev_val in prev_metrics):
-                    print("Stopping early due to no improvement in validation metric.")
-                    break
-                val_last_early_stopping_metrics.append(last_val)
-
+                all_epoch_metrics.append(epoch_metrics)
+                if early_stopping.update(epoch_metrics):
+                    torch.save(model.state_dict(), local_save_filepath)
+                    return all_epoch_metrics
         torch.save(model.state_dict(), local_save_filepath)
-
-    save_history(all_epoch_metrics, config)
-    # run_evaluation(config, data, criterion)
+    return all_epoch_metrics
 
 
 def _evaluate(criterion, data, device, model) -> dict[str, float]:

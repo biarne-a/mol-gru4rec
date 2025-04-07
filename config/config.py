@@ -17,7 +17,7 @@ class Config:
         self.epochs = json_model_config.pop("epochs")
         self.learning_rate = json_model_config.pop("learning_rate")
         self.val_every_n_steps = json_model_config.pop("val_every_n_steps")
-        self.early_stopping_after_n_evals = json_model_config.pop("early_stopping_after_n_evals")
+        self.early_stopping_patience = json_model_config.pop("early_stopping_patience")
         self.early_stopping_metric = json_model_config.pop("early_stopping_metric")
         model_config_cls = self._fetch_class(json_model_config.pop("model_config_name"))
         self.model_config = model_config_cls.from_dict(json_model_config)
