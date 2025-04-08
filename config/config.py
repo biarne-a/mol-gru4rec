@@ -21,6 +21,7 @@ class Config:
         self.val_every_n_steps = json_model_config.pop("val_every_n_steps")
         self.early_stopping_patience = json_model_config.pop("early_stopping_patience")
         self.early_stopping_metric = json_model_config.pop("early_stopping_metric")
+        self.similarity = json_model_config.pop("similarity")
         model_config_cls = self._fetch_class(json_model_config.pop("model_config_name"))
         self.model_config = model_config_cls.from_dict(json_model_config)
 

@@ -9,6 +9,7 @@ from sklearn.metrics import recall_score
 
 from config.config import Config
 from gru4rec import Gru4RecModel
+from gru4rec.similarity.dot_product_similarity import DotProductSimilarity
 from train.data import get_data, Data
 from train.early_stopping_callback import EarlyStoppingCallback
 from train.save_results import save_history, save_predictions
@@ -28,17 +29,20 @@ def _get_model_local_save_filepath(config: Config) -> str:
 
 def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecModel:
     gru4rec_config = config.model_config.to_dict()
-    return Gru4RecModel(data, device, **gru4rec_config).to(device)
+    similarity_module = get_similarity_module(config)
+    return Gru4RecModel(data, device, similarity_module, **gru4rec_config).to(device)
 
 
 def _build_optimizer(model, config):
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     return optimizer
 
+
 def _compile_model(model, config):
     optimizer = _build_optimizer(model, config)
     criterion = nn.CrossEntropyLoss()
     return optimizer, criterion
+
 
 def get_device():
     if torch.backends.mps.is_available():
@@ -47,18 +51,15 @@ def get_device():
         return torch.device('cuda')
     return torch.device('cpu')
 
+
+def get_similarity_module(config):
+    if config.similarity == "dot_product":
+        return DotProductSimilarity()
+    raise ValueError(f"Unknown similarity module: {config.similarity}")
+
+
 def send_batch_to_device(batch: dict[str, torch.tensor], device: torch.device):
     return {k: v.to(device) for k, v in batch.items()}
-
-
-def run_training(config: Config):
-    os.makedirs(config.results_dir, exist_ok=True)
-    set_seed()
-
-    all_epoch_metrics = _main_loop(config)
-
-    save_history(all_epoch_metrics, config)
-    # run_evaluation(config, data, criterion)
 
 
 def _main_loop(config):
@@ -78,7 +79,8 @@ def _main_loop(config):
             train_losses.append(loss)
             if step > 0 and step % 100 == 0:
                 print(
-                    f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}")
+                    f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}"
+                )
             if step > 0 and step % config.val_every_n_steps == 0:
                 epoch_metrics = _evaluate(criterion, data, device, model)
                 all_epoch_metrics.append(epoch_metrics)
@@ -87,6 +89,16 @@ def _main_loop(config):
                     return all_epoch_metrics
         torch.save(model.state_dict(), local_save_filepath)
     return all_epoch_metrics
+
+
+def run_training(config: Config):
+    os.makedirs(config.results_dir, exist_ok=True)
+    set_seed()
+
+    all_epoch_metrics = _main_loop(config)
+
+    save_history(all_epoch_metrics, config)
+    # run_evaluation(config, data, criterion)
 
 
 def _evaluate(criterion, data, device, model) -> dict[str, float]:
