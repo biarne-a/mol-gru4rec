@@ -11,7 +11,7 @@ class EarlyStoppingCallback:
             self._patience -=1
             if self._patience == 0:
                 print(f"Stopping early due to no improvement in validation metric {self._metric} with top value recorded: {self._max_value}")
-            return True
+                return True
 
         self._max_value = last_val
         return False
