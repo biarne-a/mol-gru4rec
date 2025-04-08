@@ -119,7 +119,7 @@ def run_evaluation(config: Config, data: Data, criterion):
     test_losses = []
     all_preds = []
     all_labels = []
-    for batch in data.test_ds:
+    for batch in data.test_dataloader:
         test_loss = model.test_step(batch, criterion)
         test_losses.append(test_loss)
         preds = model(batch).argmax(dim=1).cpu().numpy()

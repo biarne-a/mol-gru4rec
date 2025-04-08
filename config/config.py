@@ -8,11 +8,13 @@ class Config:
         self,
         data_dir: str,
         dataset_name: str,
-        config_file: str,
+        config_name: str,
     ):
         self.data_dir = data_dir
         self.dataset_name = dataset_name
-        json_model_config = json.load(open(config_file, "r"))
+        self.config_name = config_name
+        config_filename = f"config/{config_name}.json"
+        json_model_config = json.load(open(config_filename, "r"))
         self.batch_size = json_model_config.pop("batch_size")
         self.epochs = json_model_config.pop("epochs")
         self.learning_rate = json_model_config.pop("learning_rate")
@@ -32,4 +34,4 @@ class Config:
 
     @property
     def results_dir(self):
-        return f"{self.data_dir}/results/{self.dataset_name}"
+        return f"{self.data_dir}/results/{self.config_name}"
