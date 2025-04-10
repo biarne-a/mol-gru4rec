@@ -14,24 +14,17 @@ class Config:
         self.dataset_name = dataset_name
         self.config_name = config_name
         config_filename = f"config/{config_name}.json"
-        json_model_config = json.load(open(config_filename, "r"))
-        self.batch_size = json_model_config.pop("batch_size")
-        self.epochs = json_model_config.pop("epochs")
-        self.learning_rate = json_model_config.pop("learning_rate")
-        self.val_every_n_steps = json_model_config.pop("val_every_n_steps")
-        self.early_stopping_patience = json_model_config.pop("early_stopping_patience")
-        self.early_stopping_metric = json_model_config.pop("early_stopping_metric")
-        self.similarity = json_model_config.pop("similarity")
-        model_config_cls = self._fetch_class(json_model_config.pop("model_config_name"))
-        self.model_config = model_config_cls.from_dict(json_model_config)
+        json_config = json.load(open(config_filename, "r"))
 
-    def _fetch_class(self, class_name):
-        try:
-            from config.gru4rec_config import Gru4RecConfig
+        from config import Gru4RecConfig
 
-            return locals()[class_name]
-        except KeyError:
-            raise ValueError(f"Class '{class_name}' not found")
+        self.model_config = Gru4RecConfig.from_dict(json_config.pop("model_config"))
+        self.batch_size = json_config.pop("batch_size")
+        self.epochs = json_config.pop("epochs")
+        self.learning_rate = json_config.pop("learning_rate")
+        self.val_every_n_steps = json_config.pop("val_every_n_steps")
+        self.early_stopping_patience = json_config.pop("early_stopping_patience")
+        self.early_stopping_metric = json_config.pop("early_stopping_metric")
 
     @property
     def results_dir(self):

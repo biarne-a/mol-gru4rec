@@ -1,4 +1,7 @@
 import copy
+from typing import Any
+
+from config.similarity_config import SimilarityConfig
 
 
 class Gru4RecConfig:
@@ -7,17 +10,12 @@ class Gru4RecConfig:
         embedding_dim=64,
         dropout_p_embed: float = 0.0,
         dropout_p_gru: float = 0.0,
-        **kwargs
+        similarity_config: dict[str, Any] = None,
     ):
-        """
-        Builds a BertConfig.
-
-        :param hidden_size: Size of the encoder layers and the pooler layer.
-        :param inner_dim: The size of the "intermediate" (i.e., feed-forward) layer in the Transformer encoder.
-        """
         self.embedding_dim = embedding_dim
         self.dropout_p_embed = dropout_p_embed
         self.dropout_p_gru = dropout_p_gru
+        self.similarity_config = SimilarityConfig.from_dict(similarity_config or {})
 
     @classmethod
     def from_dict(cls, json_object):
@@ -28,7 +26,3 @@ class Gru4RecConfig:
         """Serializes this instance to a Python dictionary."""
         output = copy.deepcopy(self.__dict__)
         return output
-
-    @property
-    def label_column(self):
-        return "label"

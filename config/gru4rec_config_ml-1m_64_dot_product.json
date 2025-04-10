@@ -1,13 +1,16 @@
 {
-  "model_config_name": "Gru4RecConfig",
-  "embedding_dim": 64,
   "batch_size": 128,
   "epochs": 24,
   "val_every_n_steps": 500,
   "early_stopping_patience": 3,
   "early_stopping_metric": "val_hr@100",
   "learning_rate": 1e-3,
-  "dropout_p_embed": 0.0,
-  "dropout_p_gru": 0.0,
-  "similarity": "dot_product"
+  "model_config": {
+    "embedding_dim": 64,
+    "dropout_p_embed": 0.0,
+    "dropout_p_gru": 0.0,
+    "similarity_config": {
+      "type": "dot_product"
+    }
+  }
 }

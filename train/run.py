@@ -9,7 +9,9 @@ from sklearn.metrics import recall_score
 
 from config.config import Config
 from gru4rec import Gru4RecModel
+from gru4rec.similarity.cosine_similarity import CosineSimilarity
 from gru4rec.similarity.dot_product_similarity import DotProductSimilarity
+from gru4rec.similarity.similarity_utils import get_similarity_module
 from train.data import get_data, Data
 from train.early_stopping_callback import EarlyStoppingCallback
 from train.save_results import save_history, save_predictions
@@ -30,18 +32,13 @@ def _get_model_local_save_filepath(config: Config) -> str:
 def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecModel:
     gru4rec_config = config.model_config.to_dict()
     similarity_module = get_similarity_module(config)
+    gru4rec_config.pop("similarity_config")
     return Gru4RecModel(data, device, similarity_module, **gru4rec_config).to(device)
 
 
 def _build_optimizer(model, config):
     optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     return optimizer
-
-
-def _compile_model(model, config):
-    optimizer = _build_optimizer(model, config)
-    criterion = nn.CrossEntropyLoss()
-    return optimizer, criterion
 
 
 def get_device():
@@ -52,12 +49,6 @@ def get_device():
     return torch.device('cpu')
 
 
-def get_similarity_module(config):
-    if config.similarity == "dot_product":
-        return DotProductSimilarity()
-    raise ValueError(f"Unknown similarity module: {config.similarity}")
-
-
 def send_batch_to_device(batch: dict[str, torch.tensor], device: torch.device):
     return {k: v.to(device) for k, v in batch.items()}
 
@@ -66,12 +57,13 @@ def _main_loop(config):
     device = get_device()
     data = get_data(config)
     model = build_model(config, data, device)
-    optimizer, criterion = _compile_model(model, config)
+    optimizer = _build_optimizer(model, config)
+    criterion = nn.CrossEntropyLoss()
     local_save_filepath = _get_model_local_save_filepath(config)
     all_epoch_metrics = []
     train_losses = []
     early_stopping = EarlyStoppingCallback(config.early_stopping_patience, config.early_stopping_metric)
-    for epoch in range(config.epochs):  # Change to desired number of epochs
+    for epoch in range(config.epochs):
         model.train()
         for step, batch in enumerate(data.train_dataloader):
             batch = send_batch_to_device(batch, device)

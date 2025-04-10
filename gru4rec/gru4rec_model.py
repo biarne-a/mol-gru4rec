@@ -37,9 +37,9 @@ class Gru4RecModel(nn.Module):
         batch_size = inputs["input_ids"].size(0)
         batch_indexes = torch.arange(batch_size).to(self._device)
         last_hidden_state = gru_output[batch_indexes, sequence_lengths - 1, :]
-        logits = self._similarity_module(
+        logits, _ = self._similarity_module(
             query_embeddings=last_hidden_state,
-            item_embeddings=self._movie_id_embedding.weight
+            item_embeddings=self._movie_id_embedding.weight.unsqueeze(0)
         )
         return logits
 
