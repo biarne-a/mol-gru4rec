@@ -13,14 +13,15 @@ class SampleType: #(Enum):
     TEST = 2
 
 
-def _sort_views_by_timestamp(group) -> List[int]:
+def _sort_views_by_timestamp(group) -> tuple[int, list[int]]:
+    user_id = group[0]
     views = group[1]
     views.sort(key=lambda x: x[-1])
-    return [v[0] for v in views]
+    return user_id, [v[0] for v in views]
 
 
 def _generate_examples_from_complete_sequences(
-    complete_sequence: List[int],
+    observation: tuple[int, list[int]],
     max_context_len: int,
     proportion_sliding_window: Optional[float] = None,
     sliding_window_step_size_override: Optional[int] = None,
@@ -28,7 +29,7 @@ def _generate_examples_from_complete_sequences(
     """
     Generate user sequences from a single complete user sequence using a sliding window.
 
-    :param complete_sequence: The complete sequence to generate examples from (A list of ids).
+    :param observation: A tuple with user id and the complete sequence to generate examples from.
     :param max_context_len: The maximum length of the context.
     :param proportion_sliding_window: The proportion of the complete user sequence that will be used as the size of
     the step in the sliding window used to create the training sequences.
@@ -52,40 +53,44 @@ def _generate_examples_from_complete_sequences(
         max_context_len, proportion_sliding_window, sliding_window_step_size_override
     )
 
-    def _get_new_example(complete_sequence, start_idx, end_idx, sample_type):
+    def _get_new_example(observation, start_idx, end_idx, sample_type):
+        user_id, complete_sequence = observation
+
         input_ids = complete_sequence[start_idx:end_idx]
         return {
+            "user_id": user_id,
             "input_ids": input_ids,
             "sample_type": sample_type,
         }
 
     examples = []
-    complete_sequence_len = len(complete_sequence)
+    complete_sequence_len = len(observation[1])
 
     # The last 2 tokens of each sequence is for validation and testing
     # Add test sequence
     end_idx_test = complete_sequence_len
     start_idx_test = max(0, end_idx_test - max_context_len)
-    example = _get_new_example(complete_sequence, start_idx_test, end_idx_test, sample_type=2)
+    example = _get_new_example(observation, start_idx_test, end_idx_test, sample_type=2)
     examples.append(example)
 
     # Add validation sequence
     end_idx_validation = complete_sequence_len - 1
     start_idx_validation = max(0, end_idx_validation - max_context_len)
-    example = _get_new_example(complete_sequence, start_idx_validation, end_idx_validation, sample_type=1)
+    example = _get_new_example(observation, start_idx_validation, end_idx_validation, sample_type=1)
     examples.append(example)
 
     # Add train sequences
     end_indexes = list(range(end_idx_validation - 1, 0, -sliding_window_step_size))
     start_indexes = [max(0, idx - max_context_len) for idx in end_indexes]
     for start_idx, end_idx in zip(start_indexes, end_indexes):
-        example = _get_new_example(complete_sequence, start_idx, end_idx, sample_type=0)
+        example = _get_new_example(observation, start_idx, end_idx, sample_type=0)
         examples.append(example)
 
     return examples
 
 
 def _prepare_gru4rec_samples(sample: Dict[str, Any], max_context_len: int, **kwargs) -> List[Dict[str, Any]]:
+    user_id = sample["user_id"]
     input_ids = sample["input_ids"][:-1]
     label = sample["input_ids"][-1]
     input_mask = [1] * len(input_ids)
@@ -95,19 +100,29 @@ def _prepare_gru4rec_samples(sample: Dict[str, Any], max_context_len: int, **kwa
         input_mask.append(0)
 
     return [{
+        "user_id": [user_id],
         "input_ids": input_ids,
         "input_mask": input_mask,
         "label": [label],
     }]
 
 
-def _count_movies_in_ratings(train_samples: PCollection):
+def _count_movies(train_samples: PCollection):
     return (
             train_samples
             | "Flatten train samples for count" >> beam.FlatMap(lambda x: x["input_ids"])
             | "Set Movie Id Key" >> beam.Map(lambda x: (x, 1))
             | "Count By Movie Id" >> beam.combiners.Count.PerKey()
-            | "Remove 0 counts" >> beam.Filter(lambda x: x[0] != 0)
+            | "Remove 0 counts movie ids" >> beam.Filter(lambda x: x[0] != 0)
+    )
+
+
+def _count_users(train_samples: PCollection):
+    return (
+            train_samples
+            | "Set User Id Key" >> beam.Map(lambda x: (x["user_id"][0], 1))
+            | "Count By User Id" >> beam.combiners.Count.PerKey()
+            | "Remove 0 counts user ids" >> beam.Filter(lambda x: x[0] != 0)
     )
 
 
@@ -116,6 +131,7 @@ def _save_in_parquet(data_dir: str, dataset_dir_version_name: str, examples: PCo
     os.makedirs(output_dir, exist_ok=True)
     prefix = f"{output_dir}/data"
     schema = pa.schema([
+        ("user_id", pa.list_(pa.int64())),
         ("input_ids", pa.list_(pa.int64())),
         ("input_mask", pa.list_(pa.int64())),
         ("label", pa.list_(pa.int64()))
@@ -130,6 +146,11 @@ def _save_in_parquet(data_dir: str, dataset_dir_version_name: str, examples: PCo
 def _save_train_movie_counts(data_dir: str, counts: PCollection):
     counts | "Write train movie counts" >> beam.io.WriteToText(
         f"{data_dir}/vocab/train_movie_counts.txt", num_shards=1
+    )
+
+def _save_train_user_counts(data_dir: str, counts: PCollection):
+    counts | "Write train user counts" >> beam.io.WriteToText(
+        f"{data_dir}/vocab/train_user_counts.txt", num_shards=1
     )
 
 
@@ -248,8 +269,10 @@ def preprocess_with_dataflow(
         _save_in_parquet(data_dir, dataset_dir_version_name, test_examples, data_desc="test")
 
         # Count vocab
-        train_movie_counts = _count_movies_in_ratings(train_examples)
+        train_movie_counts = _count_movies(train_examples)
         _save_train_movie_counts(data_dir, train_movie_counts)
+        train_user_counts = _count_users(train_examples)
+        _save_train_user_counts(data_dir, train_user_counts)
 
 
 if __name__ == "__main__":
