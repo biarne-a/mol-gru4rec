@@ -13,9 +13,9 @@ class SimilarityConfig:
         query_dropout_rate: float,
         query_hidden_dim: int,
 
-        # item_dot_product_groups: int,
-        # item_dropout_rate: float,
-        # item_hidden_dim: int,
+        item_dot_product_groups: int,
+        item_dropout_rate: float,
+        item_hidden_dim: int,
         # temperature: float,
 
         gating_query_fn: bool,
@@ -34,7 +34,7 @@ class SimilarityConfig:
         # bf16_training: bool,
         # dot_product_l2_norm: bool = True,
         query_nonlinearity: str = "geglu",
-        # item_nonlinearity: str = "geglu",
+        item_nonlinearity: str = "geglu",
         # eps: float = 1e-6,
     ):
         self.type = type
@@ -54,21 +54,15 @@ class SimilarityConfig:
         self.gating_qi_dropout_rate = gating_qi_dropout_rate
         self.gating_combination_type = gating_combination_type
 
-        # self.query_embedding_dim = query_embedding_dim
-        # self.item_embedding_dim = item_embedding_dim
-        # self.dot_product_dimension = dot_product_dimension
-        # self.query_dot_product_groups = query_dot_product_groups
-        # self.item_dot_product_groups = item_dot_product_groups
-        # self.temperature = temperature
-        # self.query_dropout_rate = query_dropout_rate
-        # self.query_hidden_dim = query_hidden_dim
-        # self.item_dropout_rate = item_dropout_rate
-        # self.item_hidden_dim = item_hidden_dim
+        self.item_dot_product_groups = item_dot_product_groups
+        self.item_dropout_rate = item_dropout_rate
+        self.item_hidden_dim = item_hidden_dim
         # self.softmax_dropout_rate = softmax_dropout_rate
         # self.bf16_training = bf16_training
         # self.dot_product_l2_norm = dot_product_l2_norm
+        # self.temperature = temperature
         self.query_nonlinearity = query_nonlinearity
-        # self.item_nonlinearity = item_nonlinearity
+        self.item_nonlinearity = item_nonlinearity
         self.uid_embed = uid_embed
         self.uid_dropout_rate = uid_dropout_rate
         self.uid_embedding_level_dropout = uid_embedding_level_dropout

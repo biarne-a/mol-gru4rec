@@ -50,7 +50,7 @@ def create_mol_interaction_module(config: Config) -> Tuple[MoLSimilarity, str]:
         item_embedding_dim=similarity_config.item_embedding_dim,
         dot_product_dimension=similarity_config.dot_product_dimension,
         query_dot_product_groups=similarity_config.query_dot_product_groups,
-        item_dot_product_groups=1,
+        item_dot_product_groups=similarity_config.item_dot_product_groups,
         temperature=0.05,
         dot_product_l2_norm=None,
         query_embeddings_fn=RecoMoLQueryEmbeddingsFn(
@@ -91,39 +91,38 @@ def create_mol_interaction_module(config: Config) -> Tuple[MoLSimilarity, str]:
             uid_embedding_level_dropout=similarity_config.uid_embedding_level_dropout,
             eps=1e-6,
         ),
-        item_embeddings_fn = None,
-        # item_embeddings_fn=RecoMoLItemEmbeddingsFn(
-        #     item_embedding_dim=item_embedding_dim,
-        #     item_dot_product_groups=item_dot_product_groups,
-        #     dot_product_dimension=dot_product_dimension,
-        #     dot_product_l2_norm=dot_product_l2_norm,
-        #     proj_fn=lambda input_dim, output_dim: (
-        #         torch.nn.Sequential(
-        #             torch.nn.Dropout(p=item_dropout_rate),
-        #             (
-        #                 GeGLU(
-        #                     in_features=input_dim,
-        #                     out_features=item_hidden_dim,
-        #                 )
-        #                 if item_nonlinearity == "geglu"
-        #                 else SwiGLU(in_features=input_dim, out_features=item_hidden_dim)
-        #             ),
-        #             torch.nn.Linear(
-        #                 in_features=item_hidden_dim,
-        #                 out_features=output_dim,
-        #             ),
-        #         ).apply(init_mlp_xavier_weights_zero_bias)
-        #         if item_hidden_dim > 0
-        #         else torch.nn.Sequential(
-        #             torch.nn.Dropout(p=item_dropout_rate),
-        #             torch.nn.Linear(
-        #                 in_features=input_dim,
-        #                 out_features=output_dim,
-        #             ),
-        #         ).apply(init_mlp_xavier_weights_zero_bias)
-        #     ),
-        #     eps=eps,
-        # ),
+        item_embeddings_fn=RecoMoLItemEmbeddingsFn(
+            item_embedding_dim=similarity_config.item_embedding_dim,
+            item_dot_product_groups=similarity_config.item_dot_product_groups,
+            dot_product_dimension=similarity_config.dot_product_dimension,
+            dot_product_l2_norm=None,
+            proj_fn=lambda input_dim, output_dim: (
+                torch.nn.Sequential(
+                    torch.nn.Dropout(p=similarity_config.item_dropout_rate),
+                    (
+                        GeGLU(
+                            in_features=input_dim,
+                            out_features=similarity_config.item_hidden_dim,
+                        )
+                        if similarity_config.item_nonlinearity == "geglu"
+                        else SwiGLU(in_features=input_dim, out_features=similarity_config.item_hidden_dim)
+                    ),
+                    torch.nn.Linear(
+                        in_features=similarity_config.item_hidden_dim,
+                        out_features=output_dim,
+                    ),
+                ).apply(init_mlp_xavier_weights_zero_bias)
+                if similarity_config.item_hidden_dim > 0
+                else torch.nn.Sequential(
+                    torch.nn.Dropout(p=similarity_config.item_dropout_rate),
+                    torch.nn.Linear(
+                        in_features=input_dim,
+                        out_features=output_dim,
+                    ),
+                ).apply(init_mlp_xavier_weights_zero_bias)
+            ),
+            eps=1e-6,
+        ),
         gating_query_only_partial_fn=lambda input_dim, output_dim: (
             torch.nn.Sequential(
                 torch.nn.Linear(
