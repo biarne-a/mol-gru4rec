@@ -10,11 +10,13 @@ class Gru4RecConfig:
         embedding_dim=64,
         dropout_p_embed: float = 0.0,
         dropout_p_gru: float = 0.0,
-        similarity_config: dict[str, Any] = None,
+        aux_loss_weights: dict[str, float] | None = None,
+        similarity_config: dict[str, Any] | None = None,
     ):
         self.embedding_dim = embedding_dim
         self.dropout_p_embed = dropout_p_embed
         self.dropout_p_gru = dropout_p_gru
+        self.aux_loss_weights = aux_loss_weights or {}
         self.similarity_config = SimilarityConfig.from_dict(similarity_config or {})
 
     @classmethod

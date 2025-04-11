@@ -23,6 +23,7 @@ import torch
 import torch.nn.functional as F
 
 from gru4rec.similarity.mol.embeddings_fn import MoLEmbeddingsFn, mask_mixing_weights_fn
+from train.string_lookup import StringLookup
 
 
 def init_mlp_xavier_weights_zero_bias(m) -> None:
@@ -52,7 +53,8 @@ class RecoMoLQueryEmbeddingsFn(MoLEmbeddingsFn):
         eps: float,
         uid_embed: bool,
         uid_dropout_rate: float,
-        uid_embedding_level_dropout: bool = False,
+        uid_embedding_level_dropout: bool,
+        uid_lookup: StringLookup,
     ) -> None:
         super().__init__()
         self._uid_embed: bool = uid_embed
@@ -65,8 +67,7 @@ class RecoMoLQueryEmbeddingsFn(MoLEmbeddingsFn):
         self._dot_product_dimension: int = dot_product_dimension
         self._dot_product_l2_norm: bool = dot_product_l2_norm
         if self._uid_embed:
-            # TODO Complete that
-            user_id_vocab_len = 100_000
+            user_id_vocab_len = uid_lookup.get_vocab_size()
             self._uid_embedding = torch.nn.Embedding(
                 user_id_vocab_len, dot_product_dimension, padding_idx=0
             )
@@ -131,7 +132,7 @@ class RecoMoLQueryEmbeddingsFn(MoLEmbeddingsFn):
                     )
             uid_embedding = uid_embedding.unsqueeze(1)
             split_query_embeddings = torch.cat(
-                [split_query_embeddings] + uid_embedding, dim=1
+                (split_query_embeddings, uid_embedding), dim=1
             )
 
         if self._dot_product_l2_norm:

@@ -31,6 +31,7 @@ from gru4rec.similarity.mol.layers import GeGLU, SwiGLU
 from gru4rec.similarity.mol.mol_similarity import MoLSimilarity, SoftmaxDropoutCombiner
 from gru4rec.similarity.mol.query_embeddings_fns import RecoMoLQueryEmbeddingsFn
 from gru4rec.similarity.mol.item_embeddings_fns import RecoMoLItemEmbeddingsFn
+from train.data import Data
 
 
 def init_mlp_xavier_weights_zero_bias(m) -> None:
@@ -40,7 +41,7 @@ def init_mlp_xavier_weights_zero_bias(m) -> None:
             m.bias.data.fill_(0.0)
 
 
-def create_mol_interaction_module(config: Config) -> Tuple[MoLSimilarity, str]:
+def create_mol_interaction_module(config: Config, data: Data) -> Tuple[MoLSimilarity, str]:
     """
     Gin wrapper for creating MoL learned similarity.
     """
@@ -89,6 +90,7 @@ def create_mol_interaction_module(config: Config) -> Tuple[MoLSimilarity, str]:
             uid_embed=similarity_config.uid_embed,
             uid_dropout_rate=similarity_config.uid_dropout_rate,
             uid_embedding_level_dropout=similarity_config.uid_embedding_level_dropout,
+            uid_lookup=data.user_id_lookup,
             eps=1e-6,
         ),
         item_embeddings_fn=RecoMoLItemEmbeddingsFn(
@@ -219,14 +221,14 @@ def create_mol_interaction_module(config: Config) -> Tuple[MoLSimilarity, str]:
     return mol_module, interaction_module_debug_str
 
 
-def get_similarity_module(config: Config) -> Tuple[torch.nn.Module, str]:
+def get_similarity_module(config: Config, data: Data) -> Tuple[torch.nn.Module, str]:
     similarity_config = config.model_config.similarity_config
     if similarity_config.type == "dot_product":
         return DotProductSimilarity()
     if similarity_config.type == "cosine":
         return CosineSimilarity()
     if similarity_config.type == "mol":
-        interaction_module, interaction_module_debug_str = create_mol_interaction_module(config)
+        interaction_module, interaction_module_debug_str = create_mol_interaction_module(config, data)
         print(f"Interaction module: {interaction_module_debug_str}")
         return interaction_module
     raise ValueError(f"Unknown similarity module {similarity_config.type}")
