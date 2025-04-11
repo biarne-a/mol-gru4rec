@@ -75,6 +75,7 @@ def _main_loop(config):
                 )
             if step > 0 and step % config.val_every_n_steps == 0:
                 epoch_metrics = _evaluate(criterion, data, device, model)
+                model.train()
                 all_epoch_metrics.append(epoch_metrics)
                 if early_stopping.update(epoch_metrics):
                     torch.save(model.state_dict(), local_save_filepath)
