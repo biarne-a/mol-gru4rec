@@ -4,8 +4,6 @@ import copy
 class SimilarityConfig:
     def __init__(
         self,
-        type: str,
-
         query_embedding_dim: int,
         item_embedding_dim: int,
         dot_product_dimension: int,

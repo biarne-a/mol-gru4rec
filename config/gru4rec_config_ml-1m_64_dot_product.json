@@ -9,8 +9,6 @@
     "embedding_dim": 64,
     "dropout_p_embed": 0.0,
     "dropout_p_gru": 0.0,
-    "similarity_config": {
-      "type": "dot_product"
-    }
+    "similarity_type": "dot_product"
   }
 }

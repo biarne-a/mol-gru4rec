@@ -238,13 +238,12 @@ def create_mol_interaction_module(config: Config, data: Data, device: torch.devi
 
 
 def get_similarity_module(config: Config, data: Data, device: torch.device) -> Tuple[torch.nn.Module, str]:
-    similarity_config = config.model_config.similarity_config
-    if similarity_config.type == "dot_product":
+    if config.model_config.similarity_type == "dot_product":
         return DotProductSimilarity()
-    if similarity_config.type == "cosine":
+    if config.model_config.similarity_type == "cosine":
         return CosineSimilarity()
-    if similarity_config.type == "mol":
+    if config.model_config.similarity_type == "mol":
         interaction_module, interaction_module_debug_str = create_mol_interaction_module(config, data, device)
         print(f"Interaction module: {interaction_module_debug_str}")
         return interaction_module
-    raise ValueError(f"Unknown similarity module {similarity_config.type}")
+    raise ValueError(f"Unknown similarity module {config.model_config.similarity_type}")

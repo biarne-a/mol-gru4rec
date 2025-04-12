@@ -10,4 +10,4 @@ class DotProductSimilarity(SimilarityModule):
         item_embeddings: torch.Tensor,
         **kwargs,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        return torch.mm(query_embeddings, item_embeddings.t()), {}
+        return torch.mm(query_embeddings, item_embeddings.squeeze(0).t()), {}
