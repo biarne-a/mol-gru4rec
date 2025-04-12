@@ -8,10 +8,10 @@ curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-
 tar -xf google-cloud-cli-linux-x86_64.tar.gz
 ./google-cloud-sdk/install.sh
 
-
 mkdir -p data/parquets
-gsutil -m cp -r gs://movie-lens-25m/parquets/gru4rec_ml1m_full_slide data/parquets/
+gsutil -m cp -r gs://movie-lens-25m/ml-1m data/
 gsutil -m cp -r gs://movie-lens-25m/vocab data/
+gsutil -m cp -r gs://movie-lens-25m/parquets/gru4rec_ml1m_full_slide data/parquets/
 mkdir logs
 uv sync
 source .venv/bin/activate
