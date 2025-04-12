@@ -41,6 +41,9 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
         self,
         item_embedding_dim: int,
         item_dot_product_groups: int,
+        item_semantic_embed: bool,
+        item_semantic_emb_dimension: int,
+        all_item_semantic_embeddings: torch.Tensor | None,
         dot_product_dimension: int,
         dot_product_l2_norm: bool,
         proj_fn: Callable[[int, int], torch.nn.Module],
@@ -48,13 +51,21 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
     ) -> None:
         super().__init__()
 
-        self._item_emb_based_dot_product_groups: int = item_dot_product_groups
+        self._item_emb_based_dot_product_groups: int = item_dot_product_groups - int(item_semantic_embed)
         self._item_emb_proj_module: torch.nn.Module = proj_fn(
             item_embedding_dim,
             dot_product_dimension * self._item_emb_based_dot_product_groups,
         )
         self._dot_product_dimension: int = dot_product_dimension
         self._dot_product_l2_norm: bool = dot_product_l2_norm
+        self._item_semantic_embed = item_semantic_embed
+        self._item_semantic_emb_dimension = item_semantic_emb_dimension
+        self._all_item_semantic_embeddings = all_item_semantic_embeddings
+        if self._item_semantic_embed:
+            self._item_sematic_emb_proj_module: torch.nn.Module = proj_fn(
+                item_semantic_emb_dimension,
+                dot_product_dimension,
+            )
         self._eps: float = eps
 
     def forward(
@@ -64,12 +75,12 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Args:
-            input_embeddings: (B, item_embedding_dim,) x float where B is the batch size.
+            input_embeddings: (1/B, X, item_embedding_dim,) x float where B is the batch size.
             kwargs: str-keyed tensors. Implementation-specific.
 
         Returns:
             Tuple of (
-                (B, item_dot_product_groups, dot_product_embedding_dim) x float,
+                (1/B, X, item_dot_product_groups, dot_product_embedding_dim) x float,
                 str-keyed aux_losses,
             ).
         """
@@ -80,6 +91,13 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
                 self._dot_product_dimension,
             )
         )
+
+        if self._item_semantic_embed:
+            item_semantic_embedding = self._item_sematic_emb_proj_module(self._all_item_semantic_embeddings)
+            item_semantic_embedding = item_semantic_embedding.unsqueeze(1).unsqueeze(0)
+            split_item_embeddings = torch.cat(
+                (split_item_embeddings, item_semantic_embedding), dim=2
+            )
 
         if self._dot_product_l2_norm:
             split_item_embeddings = split_item_embeddings / torch.clamp(

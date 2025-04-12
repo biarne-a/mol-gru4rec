@@ -12,9 +12,13 @@ links_file: str = "data/links.csv"
 output_file: str = "data/ml-1m/movie_metadata.json"
 
 # Step 1: Read 'movies.dat' and extract unique movie IDs
-def get_unique_movie_ids(movies_file: str) -> Set[str]:
+def get_movie_data(movies_file: str) -> tuple[set[str], dict[str, str], dict[str, str]]:
     movies_df: pd.DataFrame = pd.read_csv(movies_file, sep="::", engine="python", header=None, names=["movieId", "title", "genres"])
-    return set(movies_df["movieId"].astype(str))
+    unique_movie_ids = set(movies_df["movieId"].astype(str))
+    titles_dict = {str(row["movieId"]): row["title"] for _, row in movies_df.iterrows()}
+    genres_dict = {str(row["movieId"]): row["genres"].split("|") for _, row in movies_df.iterrows()}
+    return unique_movie_ids, titles_dict, genres_dict
+
 
 # Step 2: Read 'links.csv' and create a mapping of movieId to imdbId
 def get_movie_to_imdb_mapping(links_file: str) -> Dict[str, str]:
@@ -71,7 +75,28 @@ def scrape_imdb_metadata(filtered_mapping: Dict[str, str]) -> Dict[str, Dict[str
     return metadata
 
 # Step 5: Save metadata to a JSON file
-def save_metadata(metadata: Dict[str, Dict[str, Any]], output_file: str) -> None:
+def save_metadata(
+    metadata: Dict[str, Dict[str, Any]],
+    movie_ids: Set[str],
+    titles_dict: dict[str, str],
+    genres_dict: dict[str, str],
+    output_file: str
+) -> None:
+    # Fill in missing titles and categories
+    for movie_id, movie_info in metadata.items():
+        if not movie_info.get("title") and movie_id in titles_dict:
+            movie_info["title"] = titles_dict[movie_id]
+        if not movie_info.get("categories") and movie_id in genres_dict:
+            movie_info["categories"] = genres_dict[movie_id]
+    # Add missing movies (the ones for which scrapping failed)
+    handled_ids = set(metadata.keys())
+    missing_ids = movie_ids.difference(handled_ids)
+    for movie_id in missing_ids:
+        metadata[movie_id] = {
+            "title": titles_dict.get(movie_id, None),
+            "categories": genres_dict.get(movie_id, []),
+        }
+
     with open(output_file, "w") as f:
         json.dump(metadata, f, indent=4)
 
@@ -85,8 +110,9 @@ def analyze_missing_fields(file_path: str) -> None:
     missing_fields_count = Counter()
 
     # Iterate through each movie and check for missing fields
+    movie_ids_with_missing_info = []
     for movie_id, movie_info in movie_data.items():
-        for field in ["imdbId", "title", "categories", "description"]:
+        for field in ["title", "categories"]:
             if not movie_info.get(field):  # Check if the field is missing or empty
                 missing_fields_count[field] += 1
 
@@ -98,14 +124,21 @@ def analyze_missing_fields(file_path: str) -> None:
 
 # Main function
 def main() -> None:
-    movie_ids: Set[str] = get_unique_movie_ids(movies_file)
+    movie_ids, titles_dict, genres_dict = get_movie_data(movies_file)
     movie_to_imdb: Dict[str, str] = get_movie_to_imdb_mapping(links_file)
     filtered_mapping: Dict[str, str] = filter_mapping(movie_ids, movie_to_imdb)
     metadata: Dict[str, Dict[str, Any]] = scrape_imdb_metadata(filtered_mapping)
-    save_metadata(metadata, output_file)
+    save_metadata(metadata, titles_dict, genres_dict, output_file)
     print(f"Metadata saved to {output_file}")
     analyze_missing_fields(output_file)
 
+
 if __name__ == "__main__":
     # main()
-    analyze_missing_fields(output_file)
+    # analyze_missing_fields(output_file)
+    with open(output_file, "r") as f:
+        metadata = json.load(f)
+    movie_ids, titles_dict, genres_dict = get_movie_data(movies_file)
+    save_metadata(metadata, movie_ids, titles_dict, genres_dict, output_file)
+
+    # pickle.lo

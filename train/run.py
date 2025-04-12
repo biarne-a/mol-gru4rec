@@ -23,6 +23,7 @@ def set_seed():
     random.seed(Config.SEED)
     os.environ["PYTHONHASHSEED"] = str(Config.SEED)
 
+
 def _get_model_local_save_filepath(config: Config) -> str:
     local_savedir = f"data/results/{config.dataset_name}"
     os.makedirs(local_savedir, exist_ok=True)
@@ -31,7 +32,7 @@ def _get_model_local_save_filepath(config: Config) -> str:
 
 def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecModel:
     gru4rec_config = config.model_config.to_dict()
-    similarity_module = get_similarity_module(config, data)
+    similarity_module = get_similarity_module(config, data, device)
     gru4rec_config.pop("similarity_config")
     return Gru4RecModel(data, device, similarity_module, **gru4rec_config).to(device)
 

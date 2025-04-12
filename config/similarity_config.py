@@ -16,6 +16,8 @@ class SimilarityConfig:
         item_dot_product_groups: int,
         item_dropout_rate: float,
         item_hidden_dim: int,
+        item_semantic_embed: bool,
+        item_semantic_emb_dimension: int,
         # temperature: float,
 
         gating_query_fn: bool,
@@ -57,6 +59,8 @@ class SimilarityConfig:
         self.item_dot_product_groups = item_dot_product_groups
         self.item_dropout_rate = item_dropout_rate
         self.item_hidden_dim = item_hidden_dim
+        self.item_semantic_embed = item_semantic_embed
+        self.item_semantic_emb_dimension = item_semantic_emb_dimension
         # self.softmax_dropout_rate = softmax_dropout_rate
         # self.bf16_training = bf16_training
         # self.dot_product_l2_norm = dot_product_l2_norm

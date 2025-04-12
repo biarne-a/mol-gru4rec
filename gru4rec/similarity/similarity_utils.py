@@ -41,11 +41,24 @@ def init_mlp_xavier_weights_zero_bias(m) -> None:
             m.bias.data.fill_(0.0)
 
 
-def create_mol_interaction_module(config: Config, data: Data) -> Tuple[MoLSimilarity, str]:
+def build_all_item_semantic_embeddings(data: Data, device: torch.device) -> Optional[torch.Tensor]:
+    if data.movie_semantic_embeddings is None:
+        return None
+    all_item_semantic_embeddings = [torch.tensor(emb, dtype=torch.float32).unsqueeze(0) for emb in data.movie_semantic_embeddings.values()]
+    unknown_id_embedding = torch.zeros(
+        (1, all_item_semantic_embeddings[0].shape[1]), dtype=torch.float32
+    )
+    all_item_semantic_embeddings = [unknown_id_embedding] + all_item_semantic_embeddings
+    all_item_semantic_embeddings_tensor = torch.cat(all_item_semantic_embeddings, dim=0).to(device)
+    return all_item_semantic_embeddings_tensor
+
+
+def create_mol_interaction_module(config: Config, data: Data, device: torch.device) -> Tuple[MoLSimilarity, str]:
     """
     Gin wrapper for creating MoL learned similarity.
     """
     similarity_config = config.model_config.similarity_config
+    all_item_semantic_embeddings = build_all_item_semantic_embeddings(data, device)
     mol_module = MoLSimilarity(
         query_embedding_dim=similarity_config.query_embedding_dim,
         item_embedding_dim=similarity_config.item_embedding_dim,
@@ -96,6 +109,9 @@ def create_mol_interaction_module(config: Config, data: Data) -> Tuple[MoLSimila
         item_embeddings_fn=RecoMoLItemEmbeddingsFn(
             item_embedding_dim=similarity_config.item_embedding_dim,
             item_dot_product_groups=similarity_config.item_dot_product_groups,
+            item_semantic_embed=similarity_config.item_semantic_embed,
+            item_semantic_emb_dimension=similarity_config.item_semantic_emb_dimension,
+            all_item_semantic_embeddings=all_item_semantic_embeddings,
             dot_product_dimension=similarity_config.dot_product_dimension,
             dot_product_l2_norm=None,
             proj_fn=lambda input_dim, output_dim: (
@@ -221,14 +237,14 @@ def create_mol_interaction_module(config: Config, data: Data) -> Tuple[MoLSimila
     return mol_module, interaction_module_debug_str
 
 
-def get_similarity_module(config: Config, data: Data) -> Tuple[torch.nn.Module, str]:
+def get_similarity_module(config: Config, data: Data, device: torch.device) -> Tuple[torch.nn.Module, str]:
     similarity_config = config.model_config.similarity_config
     if similarity_config.type == "dot_product":
         return DotProductSimilarity()
     if similarity_config.type == "cosine":
         return CosineSimilarity()
     if similarity_config.type == "mol":
-        interaction_module, interaction_module_debug_str = create_mol_interaction_module(config, data)
+        interaction_module, interaction_module_debug_str = create_mol_interaction_module(config, data, device)
         print(f"Interaction module: {interaction_module_debug_str}")
         return interaction_module
     raise ValueError(f"Unknown similarity module {similarity_config.type}")

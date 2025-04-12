@@ -26,6 +26,8 @@
       "item_dropout_rate": 0.1,
       "item_hidden_dim": -1,
       "item_nonlinearity": "swiglu",
+      "item_semantic_embed": false,
+      "item_semantic_emb_dimension": -1,
       "gating_query_fn": true,
       "gating_item_fn": true,
       "gating_qi_dropout_rate": 0.0,

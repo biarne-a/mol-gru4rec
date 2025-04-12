@@ -36,7 +36,7 @@ def create_embeddings(metadata_file: str, output_file: str) -> None:
         title = movie_info.get("title", "")
         categories = ", ".join(movie_info.get("categories", []))
         description = movie_info.get("description", "")
-        input_text = f"Title: {title}. Categories: {categories}. Description: {description}"
+        input_text = f"Title: {title}. Categories: {",".join(categories)}. Description: {description}"
 
         # Tokenize and create embeddings
         inputs = tokenizer(input_text, return_tensors="pt", truncation=True, padding=True, max_length=512)
