@@ -12,7 +12,6 @@
     "aux_loss_weights": {"uid_embedding_l2_norm": 0.1, "mi_loss": 0.001},
     "similarity_type": "mol",
     "similarity_config": {
-      "type": "mol",
       "query_embedding_dim": 64,
       "item_embedding_dim": 64,
       "dot_product_dimension": 64,
