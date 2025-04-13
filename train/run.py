@@ -25,9 +25,8 @@ def set_seed():
 
 
 def _get_model_local_save_filepath(config: Config) -> str:
-    local_savedir = f"data/results/{config.dataset_name}"
-    os.makedirs(local_savedir, exist_ok=True)
-    return f"{local_savedir}/model.pth"
+    os.makedirs(config.results_dir, exist_ok=True)
+    return f"{config.results_dir}/model.pth"
 
 
 def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecModel:
