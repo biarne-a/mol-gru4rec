@@ -7,6 +7,7 @@ class SimilarityConfig:
         query_embedding_dim: int,
         item_embedding_dim: int,
         dot_product_dimension: int,
+        dot_product_l2_norm: bool,
         query_dot_product_groups: int,
         query_dropout_rate: float,
         query_hidden_dim: int,
@@ -41,6 +42,7 @@ class SimilarityConfig:
         self.query_embedding_dim = query_embedding_dim
         self.item_embedding_dim = item_embedding_dim
         self.dot_product_dimension = dot_product_dimension
+        self.dot_product_l2_norm = dot_product_l2_norm
         self.query_dot_product_groups = query_dot_product_groups
         self.query_dropout_rate = query_dropout_rate
         self.query_hidden_dim = query_hidden_dim

@@ -66,12 +66,11 @@ def create_mol_interaction_module(config: Config, data: Data, device: torch.devi
         query_dot_product_groups=similarity_config.query_dot_product_groups,
         item_dot_product_groups=similarity_config.item_dot_product_groups,
         temperature=0.05,
-        dot_product_l2_norm=None,
         query_embeddings_fn=RecoMoLQueryEmbeddingsFn(
             query_embedding_dim=similarity_config.query_embedding_dim,
             query_dot_product_groups=similarity_config.query_dot_product_groups,
             dot_product_dimension=similarity_config.dot_product_dimension,
-            dot_product_l2_norm=None,
+            dot_product_l2_norm=True,
             proj_fn=lambda input_dim, output_dim: (
                 torch.nn.Sequential(
                     torch.nn.Dropout(p=similarity_config.query_dropout_rate),
@@ -113,7 +112,7 @@ def create_mol_interaction_module(config: Config, data: Data, device: torch.devi
             item_semantic_emb_dimension=similarity_config.item_semantic_emb_dimension,
             all_item_semantic_embeddings=all_item_semantic_embeddings,
             dot_product_dimension=similarity_config.dot_product_dimension,
-            dot_product_l2_norm=None,
+            dot_product_l2_norm=similarity_config.dot_product_l2_norm,
             proj_fn=lambda input_dim, output_dim: (
                 torch.nn.Sequential(
                     torch.nn.Dropout(p=similarity_config.item_dropout_rate),

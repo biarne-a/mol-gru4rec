@@ -189,7 +189,6 @@ class MoLSimilarity(SimilarityModule):
         query_dot_product_groups: int,
         item_dot_product_groups: int,
         temperature: float,
-        dot_product_l2_norm: bool,
         query_embeddings_fn: MoLEmbeddingsFn | None,
         item_embeddings_fn: MoLEmbeddingsFn | None,
         gating_query_only_partial_fn: Optional[Callable[[int, int], torch.nn.Module]],
@@ -225,7 +224,6 @@ class MoLSimilarity(SimilarityModule):
         )
         self._query_embeddings_fn: MoLEmbeddingsFn | None = query_embeddings_fn
         self._item_embeddings_fn: MoLEmbeddingsFn | None = item_embeddings_fn
-        self._dot_product_l2_norm: bool = dot_product_l2_norm
         self._query_dot_product_groups: int = query_dot_product_groups
         self._item_dot_product_groups: int = item_dot_product_groups
         self._dot_product_dimension: int = dot_product_dimension

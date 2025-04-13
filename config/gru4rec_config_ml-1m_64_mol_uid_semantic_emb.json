@@ -15,6 +15,7 @@
       "query_embedding_dim": 64,
       "item_embedding_dim": 64,
       "dot_product_dimension": 64,
+      "dot_product_l2_norm": true,
       "query_dot_product_groups": 8,
       "query_dropout_rate": 0.0,
       "query_hidden_dim": 512,
