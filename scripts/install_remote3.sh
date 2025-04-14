@@ -7,4 +7,4 @@ gsutil -m cp -r gs://movie-lens-25m/vocab data/
 gsutil -m cp -r gs://movie-lens-25m/parquets/gru4rec_ml1m_full_slide data/parquets/
 uv sync
 source .venv/bin/activate
-python -m train --data_dir data --config_name gru4rec_config_ml-1m_64_mol_uid_semantic_embed --dataset_name gru4rec_ml1m_full_slide
+python -m train --data_dir data --config_name gru4rec_config_ml-1m_64_dot_product --dataset_name gru4rec_ml1m_full_slide
