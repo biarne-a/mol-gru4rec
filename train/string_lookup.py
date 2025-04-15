@@ -18,6 +18,8 @@ class StringLookup:
 
     def reverse_lookup(self, indices):
         if isinstance(indices, list):
+            if isinstance(indices[0], list):
+                return [[self.idx_to_key.get(x, self.UNK_TOKEN) for x in row] for row in indices]
             return [self.idx_to_key.get(i, self.UNK_TOKEN) for i in indices]
         return self.idx_to_key.get(indices, self.UNK_TOKEN)
 

@@ -59,7 +59,7 @@ def _main_loop(config):
     data = get_data(config)
     model = build_model(config, data, device)
     optimizer = _build_optimizer(model, config)
-    criterion = nn.CrossEntropyLoss()
+    criterion = _build_criterion()
     local_save_filepath = _get_model_local_save_filepath(config)
     all_epoch_metrics = []
     train_losses = []
@@ -85,6 +85,10 @@ def _main_loop(config):
     return all_epoch_metrics
 
 
+def _build_criterion():
+    return nn.CrossEntropyLoss()
+
+
 def run_training(config: Config):
     os.makedirs(config.results_dir, exist_ok=True)
     set_seed()
@@ -92,10 +96,14 @@ def run_training(config: Config):
     all_epoch_metrics = _main_loop(config)
 
     save_history(all_epoch_metrics, config)
-    # run_evaluation(config, data, criterion)
 
 
-def _evaluate(criterion, data, device, model) -> dict[str, float]:
+def _evaluate(
+    criterion: torch.nn.Module,
+    data: Data,
+    device: torch.device,
+    model: Gru4RecModel,
+) -> dict[str, float]:
     print("Evaluating model...")
     model.eval()
     val_losses = []
@@ -115,26 +123,25 @@ def _print_metrics(all_metrics: dict[str, float]):
     print(metrics_str)
 
 
-def run_evaluation(config: Config, data: Data, criterion):
+def save_predictions(config: Config):
+    device = get_device()
     data = get_data(config)
-    local_save_filepath = _get_model_local_save_filepath(config)
-    model = build_model(config.model_config, data)
-    model.load_state_dict(torch.load(local_save_filepath))
+    model_filepath = _get_model_local_save_filepath(config)
+    model = build_model(config, data, device)
+    model.load_state_dict(torch.load(model_filepath, map_location=device))
     model.eval()
 
-    test_losses = []
-    all_preds = []
-    all_labels = []
-    for batch in data.test_dataloader:
-        test_loss = model.test_step(batch, criterion)
-        test_losses.append(test_loss)
-        preds = model(batch).argmax(dim=1).cpu().numpy()
-        labels = batch["label"].cpu().numpy()
-        all_preds.extend(preds)
-        all_labels.extend(labels)
-
-    avg_test_loss = np.mean(test_losses)
-    test_recall = recall_score(all_labels, all_preds, average="macro")
-    print(f"Test Loss: {avg_test_loss}, Test Recall: {test_recall}")
-
-    save_predictions(config, data, model)
+    top_k = 10
+    predictions_filename = f"{config.results_dir}/predictions.csv"
+    with open(predictions_filename, "w") as prediction_file:
+        for batch in data.val_dataloader:
+            batch = send_batch_to_device(batch, device)
+            logits, _ = model(batch)
+            _, top_k_indices = torch.topk(logits, dim=1, k=top_k)  # (B, k,)
+            top_predictions = data.movie_id_lookup.reverse_lookup(top_k_indices.cpu().tolist())
+            top_predictions = np.array(top_predictions)
+            y_true = data.movie_id_lookup.reverse_lookup(batch["label"].cpu().tolist())
+            y_true = np.array(y_true)
+            predictions_numpy = np.concatenate((y_true, top_predictions), axis=1)
+            np.savetxt(prediction_file, predictions_numpy.astype(str), fmt="%s", delimiter=",")
+            prediction_file.flush()
