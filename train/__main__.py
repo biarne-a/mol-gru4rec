@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from config.config import Config
-from train.run import run_training
+from train.run import run_training, save_predictions
 
 
 def _parse_config() -> Config:
@@ -17,6 +17,7 @@ def _parse_config() -> Config:
 def run():
     config = _parse_config()
     run_training(config)
+    # save_predictions(config)
 
 
 if __name__ == "__main__":

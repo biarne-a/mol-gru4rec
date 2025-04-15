@@ -66,6 +66,14 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
                 item_semantic_emb_dimension,
                 dot_product_dimension,
             )
+            self._item_semantic_emb_reconstruct_module = torch.nn.Sequential(
+                    torch.nn.Dropout(p=0.1),
+                    torch.nn.Linear(
+                        in_features=dot_product_dimension,
+                        out_features=item_semantic_emb_dimension,
+                    ),
+                ).apply(init_mlp_xavier_weights_zero_bias)
+            self._reconstruction_loss = torch.nn.MSELoss()
         self._eps: float = eps
 
     def forward(
@@ -92,9 +100,18 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
             )
         )
 
+        aux_losses = {}
         if self._item_semantic_embed:
             item_semantic_embedding = self._item_sematic_emb_proj_module(self._all_item_semantic_embeddings)
+            reconstructed_embedding = self._item_semantic_emb_reconstruct_module(item_semantic_embedding)
+            if self.training:
+                reconstruction_loss = self._reconstruction_loss(
+                    reconstructed_embedding, self._all_item_semantic_embeddings
+                )
+                aux_losses["reconstruction_loss"] = reconstruction_loss
+
             item_semantic_embedding = item_semantic_embedding.unsqueeze(1).unsqueeze(0)
+
             split_item_embeddings = torch.cat(
                 (split_item_embeddings, item_semantic_embedding), dim=2
             )
@@ -109,4 +126,4 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
                 ),
                 min=self._eps,
             )
-        return split_item_embeddings, {}
+        return split_item_embeddings, aux_losses
