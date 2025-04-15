@@ -4,6 +4,9 @@ import torch
 class RetrievalMetrics:
     def __init__(self, at_k_list: list[int]):
         self.at_k_list = at_k_list
+        self._reset_state()
+
+    def _reset_state(self):
         self.top_k_ids = []
         self.target_ids = []
 
@@ -24,5 +27,7 @@ class RetrievalMetrics:
         for at_k in self.at_k_list:
             output[f"hr@{at_k}"] = (ranks <= at_k).to(torch.float32).mean().item()
         output["mrr"] = (1.0 / ranks).mean().item()
+
+        self._reset_state()
 
         return output
