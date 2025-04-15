@@ -112,6 +112,8 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
                     reconstructed_embedding, self._all_item_semantic_embeddings
                 )
                 aux_losses["reconstruction_loss"] = reconstruction_loss
+                l2_norm = (item_semantic_embedding * item_semantic_embedding).sum(-1).mean()
+                aux_losses["item_semantic_emb_l2_norm"] = l2_norm
 
             item_semantic_embedding = item_semantic_embedding.unsqueeze(1).unsqueeze(0)
 

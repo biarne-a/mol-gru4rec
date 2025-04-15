@@ -9,7 +9,7 @@
     "embedding_dim": 64,
     "dropout_p_embed": 0.0,
     "dropout_p_gru": 0.0,
-    "aux_loss_weights": {"uid_embedding_l2_norm": 0.1, "reconstruction_loss":  0.1, "mi_loss": 0.001},
+    "aux_loss_weights": {"uid_embedding_l2_norm": 0.1, "item_semantic_emb_l2_norm":  0.1, "reconstruction_loss":  0.1, "mi_loss": 0.001},
     "similarity_type": "mol",
     "similarity_config": {
       "query_embedding_dim": 64,
