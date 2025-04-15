@@ -62,12 +62,15 @@ class RecoMoLItemEmbeddingsFn(MoLEmbeddingsFn):
         self._item_semantic_emb_dimension = item_semantic_emb_dimension
         self._all_item_semantic_embeddings = all_item_semantic_embeddings
         if self._item_semantic_embed:
-            self._item_sematic_emb_proj_module: torch.nn.Module = proj_fn(
-                item_semantic_emb_dimension,
-                dot_product_dimension,
-            )
+            self._item_sematic_emb_proj_module: torch.nn.Module = torch.nn.Sequential(
+                    torch.nn.Dropout(p=0.5),
+                    torch.nn.Linear(
+                        in_features=item_semantic_emb_dimension,
+                        out_features=dot_product_dimension,
+                    ),
+                ).apply(init_mlp_xavier_weights_zero_bias)
             self._item_semantic_emb_reconstruct_module = torch.nn.Sequential(
-                    torch.nn.Dropout(p=0.1),
+                    torch.nn.Dropout(p=0.5),
                     torch.nn.Linear(
                         in_features=dot_product_dimension,
                         out_features=item_semantic_emb_dimension,
