@@ -78,9 +78,9 @@ def _main_loop(config):
                 epoch_metrics = _evaluate(criterion, data, device, model)
                 model.train()
                 all_epoch_metrics.append(epoch_metrics)
-                if early_stopping.update(epoch_metrics):
-                    torch.save(model.state_dict(), local_save_filepath)
-                    return all_epoch_metrics
+#                if early_stopping.update(epoch_metrics):
+#                    torch.save(model.state_dict(), local_save_filepath)
+#                    return all_epoch_metrics
         torch.save(model.state_dict(), local_save_filepath)
     return all_epoch_metrics
 
