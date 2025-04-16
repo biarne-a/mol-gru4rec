@@ -74,6 +74,7 @@ def _main_loop(config):
     early_stopping = EarlyStoppingCallback(config.early_stopping_patience, config.early_stopping_metric)
     for epoch in range(config.epochs):
         model.train()
+        optimizer.train()
         for step, batch in enumerate(data.train_dataloader):
             batch = send_batch_to_device(batch, device)
             loss = model.train_step(batch, optimizer, criterion)
@@ -83,13 +84,18 @@ def _main_loop(config):
                     f"Epoch {epoch}, Step {step}, Step Loss: {loss:.3f}, Avg. Loss: {float(np.mean(train_losses)):.3f}"
                 )
             if step > 0 and step % config.val_every_n_steps == 0:
-                epoch_metrics = _evaluate(criterion, data, device, model)
+                epoch_metrics = _evaluate(criterion, optimizer, data, device, model)
                 model.train()
+                optimizer.train()
                 all_epoch_metrics.append(epoch_metrics)
 #                if early_stopping.update(epoch_metrics):
 #                    torch.save(model.state_dict(), local_save_filepath)
 #                    return all_epoch_metrics
+        model.eval()
+        optimizer.eval()
         torch.save(model.state_dict(), local_save_filepath)
+        model.train()
+        optimizer.train()
     return all_epoch_metrics
 
 
@@ -108,12 +114,14 @@ def run_training(config: Config):
 
 def _evaluate(
     criterion: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
     data: Data,
     device: torch.device,
     model: Gru4RecModel,
 ) -> dict[str, float]:
     print("Evaluating model...")
     model.eval()
+    optimizer.eval()
     val_losses = []
     for i, batch in enumerate(data.val_dataloader):
         batch = send_batch_to_device(batch, device)
