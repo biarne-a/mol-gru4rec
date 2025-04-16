@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
+from schedulefree import AdamWScheduleFree
 from sklearn.metrics import recall_score
 
 from config.config import Config
@@ -38,7 +39,14 @@ def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecMode
 
 
 def _build_optimizer(model, config):
-    optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+    # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+    optimizer = AdamWScheduleFree(
+        params=model.parameters(),
+        lr=config.learning_rate,
+        weight_decay=0.1,
+        warmup_steps=200,
+    )
+    # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     return optimizer
 
 
