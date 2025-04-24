@@ -39,14 +39,12 @@ def build_model(config: Config, data: Data, device: torch.device) -> Gru4RecMode
 
 
 def _build_optimizer(model, config):
-    # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     optimizer = AdamWScheduleFree(
         params=model.parameters(),
         lr=config.learning_rate,
         weight_decay=0.1,
         warmup_steps=200,
     )
-    # optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
     return optimizer
 
 
@@ -70,11 +68,11 @@ def _main_loop(config):
     criterion = _build_criterion()
     local_save_filepath = _get_model_local_save_filepath(config)
     all_epoch_metrics = []
-    train_losses = []
     early_stopping = EarlyStoppingCallback(config.early_stopping_patience, config.early_stopping_metric)
     for epoch in range(config.epochs):
         model.train()
         optimizer.train()
+        train_losses = []
         for step, batch in enumerate(data.train_dataloader):
             batch = send_batch_to_device(batch, device)
             loss = model.train_step(batch, optimizer, criterion)
